@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -193,10 +194,18 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
+		defer wg.Done()
 		if err := s.ListenAndServe(); err != nil {
 			setupLog.Error(err, "HTTP server error")
 		}
+
+		s.RegisterOnShutdown(func() {
+			proxy.Close()
+		})
 	}()
 
 	pReconciler := &controllers.RequestCloneReconciler{
@@ -218,4 +227,7 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+
+	s.Shutdown(context.TODO())
+	wg.Wait()
 }
