@@ -2,7 +2,6 @@ apiVersion: proxy.infra.doodle.com/v1beta1
 kind: RequestClone
 metadata:
   name: webhook-receiver
-  namespace: apps
 spec:
   host: webhook-receiver.example.com
   backend:

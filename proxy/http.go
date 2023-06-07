@@ -34,6 +34,7 @@ type HttpProxy struct {
 	mutex         sync.Mutex
 	log           logr.Logger
 	bodySizeLimit int64
+	wg            sync.WaitGroup
 }
 
 type Options struct {
@@ -92,7 +93,6 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		found bool
 		b     []byte
 		err   error
-		wg    sync.WaitGroup
 	)
 
 	if h.bodySizeLimit == 0 {
@@ -111,10 +111,10 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if dst.Host == r.Host {
 			found = true
 			h.log.Info("found matching http backend for request", "request", r.RequestURI, "host", dst.Host, "service", dst.Service, "port", dst.Port)
-			wg.Add(1)
+			h.wg.Add(1)
 
 			go func(dst RequestClone, r *http.Request, b []byte) {
-				defer wg.Done()
+				defer h.wg.Done()
 				clone := r.Clone(context.TODO())
 
 				clone.URL.Scheme = "http"
@@ -139,6 +139,8 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// We don't have any matching RequestClone resources matching the host
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
+}
 
-	wg.Wait()
+func (h *HttpProxy) Close() {
+	h.wg.Wait()
 }

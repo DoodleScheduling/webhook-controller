@@ -184,6 +184,8 @@ func TestServeHTTP(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			proxy.ServeHTTP(w, test.request())
+			proxy.Close()
+
 			g.Expect(test.expectHTTPCode).To(Equal(w.Code))
 			_ = w.Result()
 
