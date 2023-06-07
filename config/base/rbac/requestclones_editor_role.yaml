@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: requestclones-editor-role
+rules:
+- apiGroups:
+  - proxy.infra.doodle.com
+  resources:
+  - requestclones
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - proxy.infra.doodle.com
+  resources:
+  - requestclones/status
+  verbs:
+  - get

@@ -1,0 +1,9 @@
+apiVersion: proxy.infra.doodle.com/v1beta1
+kind: RequestClone
+metadata:
+  name: webhook-receiver
+spec:
+  host: webhook-receiver.example.com
+  backend:
+    serviceName: podinfo
+    servicePort: http
