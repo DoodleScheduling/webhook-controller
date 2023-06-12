@@ -30,6 +30,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{ template "k8sreq-duplicator-controller.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
