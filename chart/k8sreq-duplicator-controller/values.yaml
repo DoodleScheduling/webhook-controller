@@ -88,7 +88,7 @@ securityContext:
     drop: ["all"]
   readOnlyRootFilesystem: true
 
-podSecurityContext:  
+podSecurityContext:
   runAsGroup: 10000
   runAsNonRoot: true
   runAsUser: 10000
@@ -132,6 +132,7 @@ prometheusRule:
 
 kubeRBACProxy:
   enabled: true
+  image: quay.io/brancz/kube-rbac-proxy:v0.14.2
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
@@ -145,5 +146,5 @@ kubeRBACProxy:
   # requests:
   #   cpu: 5m
   #   memory: 64Mi
-    
+
 tolerations: []
