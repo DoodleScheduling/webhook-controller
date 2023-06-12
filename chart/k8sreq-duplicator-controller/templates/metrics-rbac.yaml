@@ -17,6 +17,23 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
+  name: {{ include "k8sreq-duplicator-controller.fullname" . }}-metrics
+  labels:
+    app.kubernetes.io/name: {{ include "k8sreq-duplicator-controller.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ include "k8sreq-duplicator-controller.chart" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "k8sreq-duplicator-controller.fullname" . }}-metrics-reader
+subjects:
+- kind: ServiceAccount
+  name: {{ template "k8sreq-duplicator-controller.serviceAccountName" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
   name: {{ include "k8sreq-duplicator-controller.fullname" . }}-proxy
   labels:
     app.kubernetes.io/name: {{ include "k8sreq-duplicator-controller.name" . }}
