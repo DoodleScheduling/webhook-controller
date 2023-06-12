@@ -6,7 +6,7 @@
 *.so
 *.dylib
 bin
-manager
+/manager
 config/tests/cases/simple/charts
 coverage.out
 

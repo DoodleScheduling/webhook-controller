@@ -228,6 +228,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	s.Shutdown(context.TODO())
+	_ = s.Shutdown(context.TODO())
 	wg.Wait()
 }
