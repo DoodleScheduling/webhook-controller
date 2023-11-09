@@ -1,12 +1,12 @@
-# k8sreq-duplicator-controller - Proxy for duplicating HTTP requests to multiple targets
+# webhook-controller - Proxy for duplicating incoming webhooks to multiple targets
 
-[![release](https://img.shields.io/github/release/DoodleScheduling/k8sreq-duplicator-controller/all.svg)](https://github.com/DoodleScheduling/k8sreq-duplicator-controller/releases)
-[![release](https://github.com/doodlescheduling/k8sreq-duplicator-controller/actions/workflows/release.yaml/badge.svg)](https://github.com/doodlescheduling/k8sreq-duplicator-controller/actions/workflows/release.yaml)
-[![report](https://goreportcard.com/badge/github.com/DoodleScheduling/k8sreq-duplicator-controller)](https://goreportcard.com/report/github.com/DoodleScheduling/k8sreq-duplicator-controller)
-[![Coverage Status](https://coveralls.io/repos/github/DoodleScheduling/k8sreq-duplicator-controller/badge.svg?branch=master)](https://coveralls.io/github/DoodleScheduling/k8sreq-duplicator-controller?branch=master)
-[![license](https://img.shields.io/github/license/DoodleScheduling/k8sreq-duplicator-controller.svg)](https://github.com/DoodleScheduling/k8sreq-duplicator-controller/blob/master/LICENSE)
+[![release](https://img.shields.io/github/release/DoodleScheduling/webhook-controller/all.svg)](https://github.com/DoodleScheduling/webhook-controller/releases)
+[![release](https://github.com/doodlescheduling/webhook-controller/actions/workflows/release.yaml/badge.svg)](https://github.com/doodlescheduling/webhook-controller/actions/workflows/release.yaml)
+[![report](https://goreportcard.com/badge/github.com/DoodleScheduling/webhook-controller)](https://goreportcard.com/report/github.com/DoodleScheduling/webhook-controller)
+[![Coverage Status](https://coveralls.io/repos/github/DoodleScheduling/webhook-controller/badge.svg?branch=master)](https://coveralls.io/github/DoodleScheduling/webhook-controller?branch=master)
+[![license](https://img.shields.io/github/license/DoodleScheduling/webhook-controller.svg)](https://github.com/DoodleScheduling/webhook-controller/blob/master/LICENSE)
 
-This HTTP proxy duplicates incoming requests and sends them in parallel to multiple targets.
+This HTTP proxy duplicates incoming requests and sends concurrently to multiple targets.
 The response will be HTTP 202 Accepted if at least one matching target was found. The responses from the targets are not exposed
 to upstream by design.
 
@@ -14,11 +14,9 @@ to upstream by design.
 This proxy is especially useful for handling incoming webhooks which need to be distributed to multiple targets.
 However it can be used for any other use case where a request needs to be duplicated.
 
-This proxy is designed to be deployed to kubernetes can targets are configured using a `RequestClone` CRD.
-
 ## Example RequestClone
 
-These two targets both match `webhook-receiver.example.com`, meaning any incoming request will be duplicated to both endpoints.
+These two targets both match `webhook-receiver.example.com`, meaning any incoming request will be sent to both endpoints.
 In this case to `webhook-receiver-app-1:80` and `webhook-receiver-app-2:80`.
 
 ```yaml
@@ -45,12 +43,11 @@ spec:
     servicePort: http
 
 ```
-
 North south routing looks like this:
 ```
                                                                       
                                 => Ingress controller proxy =>          => webhook-receiver-app-1:80
-              client                                            k8sreq      
+              client                                            webhook      
 [webhook-receiver.example.com]  <=                          <=          => webhook-receiver-app-2:80
                                           202 Accepted
 ```
@@ -63,7 +60,7 @@ and only hosts which are used to duplicate requests should be routed via this pr
 
 ### Helm chart
 
-Please see [chart/k8sreq-duplicator-controller](https://github.com/DoodleScheduling/k8sreq-duplicator-controller) for the helm chart docs.
+Please see [chart/webhook-controller](https://github.com/DoodleScheduling/webhook-controller) for the helm chart docs.
 
 ### Manifests/kustomize
 
@@ -71,20 +68,34 @@ Alternatively you may get the bundled manifests in each release to deploy it usi
 
 ## Configure the controller
 
-You may change base settings for the controller using env variables (or alternatively command line arguments).
-Available env variables:
-
-| Name  | Description | Default |
-|-------|-------------| --------|
-| `METRICS_ADDR` | The address of the metric endpoint binds to. | `:9556` |
-| `PROBE_ADDR` | The address of the probe endpoints binds to. | `:9557` |
-| `HTTP_ADDR` | The address of the http proxy. | `:8080` |
-| `PROXY_READ_TIMEOUT` | Read timeout to the proxy backend. | `30s` |
-| `PROXY_WRITE_TIMEOUT` | Write timeout to the proxy backend. | `30s` |
-| `ENABLE_LEADER_ELECTION` | Enable leader election for controller manager. | `false` |
-| `LEADER_ELECTION_NAMESPACE` | Change the leader election namespace. This is by default the same where the controller is deployed. | `` |
-| `NAMESPACES` | The controller listens by default for all namespaces. This may be limited to a comma delimted list of dedicated namespaces. | `` |
-| `CONCURRENT` | The number of concurrent reconcile workers.  | `2` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | The gRPC opentelemtry-collector endpoint uri | `` |
-
-**Note:** The proxy implements opentelemetry tracing, see [further possible env](https://opentelemetry.io/docs/reference/specification/sdk-environment-variables/) variables to configure it.
+The controller can be configured using cmd args:
+```
+--concurrent int                            The number of concurrent Pod reconciles. (default 4)
+--enable-leader-election                    Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.
+--graceful-shutdown-timeout duration        The duration given to the reconciler to finish before forcibly stopping. (default 10m0s)
+--health-addr string                        The address the health endpoint binds to. (default ":9557")
+--http-addr string                          The address of http server binding to. (default ":8080")
+--insecure-kubeconfig-exec                  Allow use of the user.exec section in kubeconfigs provided for remote apply.
+--insecure-kubeconfig-tls                   Allow that kubeconfigs provided for remote apply can disable TLS verification.
+--kube-api-burst int                        The maximum burst queries-per-second of requests sent to the Kubernetes API. (default 300)
+--kube-api-qps float32                      The maximum queries-per-second of requests sent to the Kubernetes API. (default 50)
+--leader-election-lease-duration duration   Interval at which non-leader candidates will wait to force acquire leadership (duration string). (default 35s)
+--leader-election-release-on-cancel         Defines if the leader should step down voluntarily on controller manager shutdown. (default true)
+--leader-election-renew-deadline duration   Duration that the leading controller manager will retry refreshing leadership before giving up (duration string). (default 30s)
+--leader-election-retry-period duration     Duration the LeaderElector clients should wait between tries of actions (duration string). (default 5s)
+--log-encoding string                       Log encoding format. Can be 'json' or 'console'. (default "json")
+--log-level string                          Log verbosity level. Can be one of 'trace', 'debug', 'info', 'error'. (default "info")
+--max-retry-delay duration                  The maximum amount of time for which an object being reconciled will have to wait before a retry. (default 15m0s)
+--metrics-addr string                       The address the metric endpoint binds to. (default ":9556")
+--min-retry-delay duration                  The minimum amount of time for which an object being reconciled will have to wait before a retry. (default 750ms)
+--otel-endpoint string                      Opentelemetry gRPC endpoint (without protocol)
+--otel-insecure                             Opentelemetry gRPC disable tls
+--otel-service-name string                  Opentelemetry service name (default "k8skeycloak-controller")
+--otel-tls-client-cert-path string          Opentelemetry gRPC mTLS client cert path
+--otel-tls-client-key-path string           Opentelemetry gRPC mTLS client key path
+--otel-tls-root-ca-path string              Opentelemetry gRPC mTLS root CA path
+--proxy-read-timeout duration               Read timeout for proxy requests. (default 10s)
+--proxy-write-timeout duration              Write timeout for proxy requests. (default 10s)
+--watch-all-namespaces                      Watch for resources in all namespaces, if set to false it will only watch the runtime namespace. (default true)
+--watch-label-selector string               Watch for resources with matching labels e.g. 'sharding.fluxcd.io/shard=shard1'.
+```

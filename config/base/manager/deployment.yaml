@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8sreq-duplicator-controller
+  name: webhook-controller
   labels:
     control-plane: controller-manager
 spec:
@@ -21,8 +21,8 @@ spec:
         - /manager
         args:
         - --enable-leader-election
-        image: ghcr.io/doodlescheduling/k8sreq-duplicator-controller:latest
-        name: k8sreq-duplicator-controller
+        image: ghcr.io/doodlescheduling/webhook-controller:latest
+        name: webhook-controller
         imagePullPolicy: Never
         ports:
         - name: metrics

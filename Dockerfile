@@ -4,6 +4,6 @@ COPY manager manager
 USER 65532:65532
 
 # User env is required by opentelemetry-go
-ENV USER=k8sreq-duplicator-controller
+ENV USER=webhook-controller
 
 ENTRYPOINT ["/manager"]

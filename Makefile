@@ -1,8 +1,8 @@
 
 # Image URL to use all building/pushing image targets
-IMG ?= k8sreq-duplicator-controller:latest
+IMG ?= webhook-controller:latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.23
+ENVTEST_K8S_VERSION = 1.27
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -42,7 +42,7 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/base/crd/bases
-	cp config/base/crd/bases/* chart/k8sreq-duplicator-controller/crds/
+	cp config/base/crd/bases/* chart/webhook-controller/crds/
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -100,17 +100,13 @@ TEST_PROFILE=simple
 CLUSTER=kind
 
 .PHONY: kind-test
-kind-test: docker-build ## Deploy including test
+kind-test: ## Deploy including test
 	kustomize build config/base/crd | kubectl --context kind-${CLUSTER} apply -f -	
+	kubectl --context kind-${CLUSTER} -n webhook-system delete pods --all
 	kind load docker-image ${IMG} --name ${CLUSTER}
-	kubectl -n k8sreq-system delete pods --all
 	kustomize build config/tests/cases/${TEST_PROFILE} --enable-helm | kubectl --context kind-${CLUSTER} apply -f -	
-	kubectl --context kind-${CLUSTER} -n k8sreq-system wait --for=condition=Ready pods -l control-plane=controller-manager -l app.kubernetes.io/name=podinfo -l app.kubernetes.io/managed-by!=Helm --timeout=3m
-	kubectl -n k8sreq-system port-forward svc/k8sreq-duplicator-controller 8080:8080 & \
-	pid=$$!; \
-	sleep 2
-	curl -v --fail -H "Host: webhook-receiver.example.com" http://localhost:8080; \
-	kill $$pid
+	kubectl --context kind-${CLUSTER} -n webhook-system wait --for=condition=Ready pods -l control-plane=controller-manager -l app.kubernetes.io/managed-by!=Helm,verify!=yes --timeout=3m
+	kubectl --context kind-${CLUSTER} -n webhook-system wait --for=jsonpath='{.status.conditions[1].reason}'=PodCompleted pods -l app.kubernetes.io/managed-by!=Helm,verify=yes --timeout=3m
 
 ##@ Deployment
 
@@ -128,7 +124,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/base/manager && $(KUSTOMIZE) edit set image ghcr.io/doodlescheduling/k8sreq-duplicator-controller=${IMG}
+	cd config/base/manager && $(KUSTOMIZE) edit set image ghcr.io/doodlescheduling/webhook-controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy

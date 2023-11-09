@@ -36,10 +36,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	v1beta1 "github.com/DoodleScheduling/k8sreq-duplicator-controller/api/v1beta1"
-	"github.com/DoodleScheduling/k8sreq-duplicator-controller/proxy"
+	v1beta1 "github.com/DoodleScheduling/webhook-controller/api/v1beta1"
+	"github.com/DoodleScheduling/webhook-controller/internal/proxy"
 )
 
 const (
@@ -77,20 +76,19 @@ func (r *RequestCloneReconciler) SetupWithManager(mgr ctrl.Manager, opts Request
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.RequestClone{}).
 		Watches(
-			&source.Kind{Type: &v1.Service{}},
+			&v1.Service{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForServiceChange),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
 		Complete(r)
 }
 
-func (r *RequestCloneReconciler) requestsForServiceChange(o client.Object) []reconcile.Request {
+func (r *RequestCloneReconciler) requestsForServiceChange(ctx context.Context, o client.Object) []reconcile.Request {
 	s, ok := o.(*v1.Service)
 	if !ok {
 		panic(fmt.Sprintf("expected a Service, got %T", o))
 	}
 
-	ctx := context.Background()
 	var list v1beta1.RequestCloneList
 	if err := r.List(ctx, &list, client.MatchingFields{
 		serviceIndex: objectKey(s).String(),

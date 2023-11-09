@@ -4,5 +4,5 @@ resources:
 - deployment.yaml
 - service.yaml
 images:
-- name: ghcr.io/doodlescheduling/k8sreq-duplicator-controller
+- name: ghcr.io/doodlescheduling/webhook-controller
   newTag: v0.0.1

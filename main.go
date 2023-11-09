@@ -18,36 +18,34 @@ package main
 
 import (
 	"context"
-	"flag"
+	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
+	infrav1beta1 "github.com/DoodleScheduling/webhook-controller/api/v1beta1"
+	"github.com/DoodleScheduling/webhook-controller/internal/controllers"
+	"github.com/DoodleScheduling/webhook-controller/internal/otelsetup"
+	"github.com/DoodleScheduling/webhook-controller/internal/proxy"
+	"github.com/fluxcd/pkg/runtime/client"
+	helper "github.com/fluxcd/pkg/runtime/controller"
+	"github.com/fluxcd/pkg/runtime/leaderelection"
+	"github.com/fluxcd/pkg/runtime/logger"
+	flag "github.com/spf13/pflag"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/contrib/propagators/b3"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/sdk/resource"
-	"go.opentelemetry.io/otel/sdk/trace"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
+	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	infradoodlecomv1beta1 "github.com/DoodleScheduling/k8sreq-duplicator-controller/api/v1beta1"
-	"github.com/DoodleScheduling/k8sreq-duplicator-controller/controllers"
-	"github.com/DoodleScheduling/k8sreq-duplicator-controller/proxy"
 	// +kubebuilder:scaffold:imports
 )
+
+const controllerName = "webhook-controller"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -56,71 +54,86 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
-
+	_ = infrav1beta1.AddToScheme(scheme)
 	_ = corev1.AddToScheme(scheme)
-	_ = infradoodlecomv1beta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
 var (
-	proxyReadTimeout        = "30s"
-	proxyWriteTimeout       = "30s"
+	proxyReadTimeout        = 10 * time.Second
+	proxyWriteTimeout       = 10 * time.Second
 	httpAddr                = ":8080"
-	metricsAddr             = ":9556"
-	probesAddr              = ":9557"
-	enableLeaderElection    = false
-	leaderElectionNamespace string
-	namespaces              = ""
-	concurrent              = 2
+	metricsAddr             string
+	healthAddr              string
+	concurrent              int
+	gracefulShutdownTimeout time.Duration
+	clientOptions           client.Options
+	kubeConfigOpts          client.KubeConfigOptions
+	logOptions              logger.Options
+	leaderElectionOptions   leaderelection.Options
+	rateLimiterOptions      helper.RateLimiterOptions
+	watchOptions            helper.WatchOptions
+	otelOptions             otelsetup.Options
 )
 
 func main() {
-	flag.StringVar(&metricsAddr, "metrics-addr", ":9556", "The address of the metric endpoint binds to.")
-	flag.StringVar(&probesAddr, "probe-addr", ":9557", "The address of the probe endpoints bind to.")
 	flag.StringVar(&httpAddr, "http-addr", ":8080", "The address of http server binding to.")
-	flag.StringVar(&proxyReadTimeout, "proxy-read-timeout", "10s", "Read timeout for proxy requests.")
-	flag.StringVar(&proxyWriteTimeout, "proxy-write-timeout", "10s", "Write timeout for proxy requests.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "",
-		"Specify a different leader election namespace. It will use the one where the controller is deployed by default.")
-	flag.StringVar(&namespaces, "namespaces", "",
-		"The controller listens by default for all namespaces. This may be limited to a comma delimted list of dedicated namespaces.")
-	flag.IntVar(&concurrent, "concurrent", 2,
-		"The number of concurrent reconcile workers. By default this is 2.")
+	flag.DurationVar(&proxyReadTimeout, "proxy-read-timeout", 10*time.Second, "Read timeout for proxy requests.")
+	flag.DurationVar(&proxyWriteTimeout, "proxy-write-timeout", 10*time.Second, "Write timeout for proxy requests.")
+	flag.StringVar(&metricsAddr, "metrics-addr", ":9556",
+		"The address the metric endpoint binds to.")
+	flag.StringVar(&healthAddr, "health-addr", ":9557",
+		"The address the health endpoint binds to.")
+	flag.IntVar(&concurrent, "concurrent", 4,
+		"The number of concurrent Pod reconciles.")
+	flag.DurationVar(&gracefulShutdownTimeout, "graceful-shutdown-timeout", 600*time.Second,
+		"The duration given to the reconciler to finish before forcibly stopping.")
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.Parse()
-	ctrl.SetLogger(zap.New())
+	clientOptions.BindFlags(flag.CommandLine)
+	logOptions.BindFlags(flag.CommandLine)
+	leaderElectionOptions.BindFlags(flag.CommandLine)
+	rateLimiterOptions.BindFlags(flag.CommandLine)
+	kubeConfigOpts.BindFlags(flag.CommandLine)
+	watchOptions.BindFlags(flag.CommandLine)
+	otelOptions.BindFlags(flag.CommandLine)
 
-	// Import flags into viper and bind them to env vars
-	// flags are converted to upper-case, - is replaced with _
-	err := viper.BindPFlags(pflag.CommandLine)
+	flag.Parse()
+	logger.SetLogger(logger.NewLogger(logOptions))
+
+	leaderElectionId := fmt.Sprintf("%s-%s", controllerName, "leader-election")
+	if watchOptions.LabelSelector != "" {
+		leaderElectionId = leaderelection.GenerateID(leaderElectionId, watchOptions.LabelSelector)
+	}
+
+	watchNamespace := ""
+	if !watchOptions.AllNamespaces {
+		watchNamespace = os.Getenv("RUNTIME_NAMESPACE")
+	}
+
+	watchSelector, err := helper.GetWatchSelector(watchOptions)
 	if err != nil {
-		setupLog.Error(err, "Failed parsing command line arguments")
+		setupLog.Error(err, "unable to configure watch label selector for manager")
 		os.Exit(1)
 	}
 
-	replacer := strings.NewReplacer("-", "_")
-	viper.SetEnvKeyReplacer(replacer)
-	viper.AutomaticEnv()
-
 	opts := ctrl.Options{
-		Scheme:                  scheme,
-		MetricsBindAddress:      viper.GetString("metrics-addr"),
-		HealthProbeBindAddress:  viper.GetString("probe-addr"),
-		LeaderElection:          viper.GetBool("enable-leader-election"),
-		LeaderElectionNamespace: viper.GetString("leader-election-namespace"),
-		LeaderElectionID:        "k8sreq-duplicator-controller",
-	}
-
-	ns := strings.Split(viper.GetString("namespaces"), ",")
-	if len(ns) > 0 && ns[0] != "" {
-		opts.NewCache = cache.MultiNamespacedCacheBuilder(ns)
-		setupLog.Info("watching dedicated namespaces", "namespaces", ns)
-	} else {
-		setupLog.Info("watching all namespaces")
+		Scheme:                        scheme,
+		MetricsBindAddress:            metricsAddr,
+		HealthProbeBindAddress:        healthAddr,
+		LeaderElection:                leaderElectionOptions.Enable,
+		LeaderElectionReleaseOnCancel: leaderElectionOptions.ReleaseOnCancel,
+		LeaseDuration:                 &leaderElectionOptions.LeaseDuration,
+		RenewDeadline:                 &leaderElectionOptions.RenewDeadline,
+		RetryPeriod:                   &leaderElectionOptions.RetryPeriod,
+		GracefulShutdownTimeout:       &gracefulShutdownTimeout,
+		Port:                          9443,
+		LeaderElectionID:              leaderElectionId,
+		Cache: ctrlcache.Options{
+			ByObject: map[ctrlclient.Object]ctrlcache.ByObject{
+				&infrav1beta1.RequestClone{}: {Label: watchSelector},
+			},
+			Namespaces: []string{watchNamespace},
+		},
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), opts)
@@ -143,36 +156,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	resources, err := resource.New(context.Background(),
-		resource.WithFromEnv(), // pull attributes from OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME environment variables
-		resource.WithProcess(), // This option configures a set of Detectors that discover process information
-	)
-	if err != nil {
-		setupLog.Error(err, "failed creating OTLP resources")
-		os.Exit(1)
-	}
-
-	client := otlptracegrpc.NewClient()
-	exporter, err := otlptrace.New(context.Background(), client)
-	if err != nil {
-		setupLog.Error(err, "failed creating OTLP trace exporter")
-		os.Exit(1)
-	}
-
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exporter),
-		trace.WithResource(resources),
-	)
-
-	otel.SetTextMapPropagator(b3.New())
-	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
-			setupLog.Error(err, "failed to shutdown trace provider")
-		}
-	}()
-
-	otel.SetTracerProvider(tp)
-	o := proxy.Options{
+	proxyOpts := proxy.Options{
 		Logger: setupLog,
 		Client: &http.Client{
 			Transport: otelhttp.NewTransport(http.DefaultTransport),
@@ -183,14 +167,14 @@ func main() {
 		BodySizeLimit: proxy.DefaultBodyLimit,
 	}
 
-	proxy := proxy.New(o)
+	proxy := proxy.New(proxyOpts)
 	wrappedHandler := otelhttp.NewHandler(proxy, "req-duplicator")
 
-	s := &http.Server{
+	httpSrv := &http.Server{
 		Addr:           httpAddr,
 		Handler:        wrappedHandler,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		ReadTimeout:    proxyReadTimeout,
+		WriteTimeout:   proxyWriteTimeout,
 		MaxHeaderBytes: 1 << 20,
 	}
 
@@ -199,35 +183,47 @@ func main() {
 
 	go func() {
 		defer wg.Done()
-		if err := s.ListenAndServe(); err != nil {
+		if err := httpSrv.ListenAndServe(); err != nil {
 			setupLog.Error(err, "HTTP server error")
 		}
 
-		s.RegisterOnShutdown(func() {
+		httpSrv.RegisterOnShutdown(func() {
 			proxy.Close()
 		})
 	}()
 
-	pReconciler := &controllers.RequestCloneReconciler{
-		Client:    mgr.GetClient(),
+	setReconciler := &controllers.RequestCloneReconciler{
 		Log:       ctrl.Log.WithName("controllers").WithName("RequestClone"),
 		Scheme:    mgr.GetScheme(),
 		Recorder:  mgr.GetEventRecorderFor("RequestClone"),
+		Client:    mgr.GetClient(),
 		HttpProxy: proxy,
 	}
-	if err = pReconciler.SetupWithManager(mgr, controllers.RequestCloneReconcilerOptions{MaxConcurrentReconciles: viper.GetInt("concurrent")}); err != nil {
+
+	if err = setReconciler.SetupWithManager(mgr, controllers.RequestCloneReconcilerOptions{
+		MaxConcurrentReconciles: concurrent,
+	}); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RequestClone")
 		os.Exit(1)
 	}
 
-	// +kubebuilder:scaffold:builder
+	if otelOptions.Endpoint != "" {
+		tp, err := otelsetup.Tracing(context.Background(), otelOptions)
+		defer func() {
+			if err := tp.Shutdown(context.Background()); err != nil {
+				setupLog.Error(err, "failed to shutdown trace provider")
+			}
+		}()
 
+		if err != nil {
+			setupLog.Error(err, "failed to setup trace provider")
+		}
+	}
+
+	// +kubebuilder:scaffold:builder
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-
-	_ = s.Shutdown(context.TODO())
-	wg.Wait()
 }
