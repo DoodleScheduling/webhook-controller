@@ -198,7 +198,7 @@ jobs:
           kubectl -n webhook-system describe pods
           kubectl -n webhook-system get all
           kubectl -n webhook-system logs deploy/webhook-controller
-          kubectl -n webhook-system get tcpingressmapping -o yaml
+          kubectl -n webhook-system get requestclone -o yaml
 
   test-chart: 
     runs-on: ubuntu-latest
