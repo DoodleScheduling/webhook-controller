@@ -10,7 +10,7 @@ fullnameOverride: ""
 
 image:
   pullPolicy: IfNotPresent
-  repository: ghcr.io/doodlescheduling/k8sreq-duplicator-controller
+  repository: ghcr.io/doodlescheduling/webhook-controller
   tag:
 
 imagePullSecrets: []

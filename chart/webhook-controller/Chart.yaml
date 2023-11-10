@@ -1,17 +1,17 @@
 apiVersion: v2
-appVersion: v0.0.2
+appVersion: v0.0.0
 description: HTTP request duplicator
-home: https://github.com/DoodleScheduling/k8sreq-duplicator-controller
+home: https://github.com/DoodleScheduling/webhook-controller
 maintainers:
 - name: devops
   email: devops@doodle.com
 keywords:
 - kubernetes-controller
 - http-proxy
-- webhook-duplicator
+- webhook
 - duplicate-http-requests
 - request-clone
-name: k8sreq-duplicator-controller
+name: webhook-controller
 sources:
-- https://github.com/DoodleScheduling/k8sreq-duplicator-controller
+- https://github.com/DoodleScheduling/webhook-controller
 version: 0.0.3

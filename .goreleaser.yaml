@@ -1,4 +1,4 @@
-project_name: k8sreq-duplicator-controller
+project_name: webhook-controller
 
 builds:
 - id: manager

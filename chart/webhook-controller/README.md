@@ -1,16 +1,16 @@
-# k8sreq-duplicator-controller helm chart
+# webhook-controller helm chart
 
-Installs the [k8sreq-duplicator-controller](https://github.com/DoodleScheduling/k8sreq-duplicator-controller).
+Installs the [webhook-controller](https://github.com/DoodleScheduling/webhook-controller).
 
 ## Installing the Chart
 
-To install the chart with the release name `k8sreq-duplicator-controller`:
+To install the chart with the release name `webhook-controller`:
 
 ```console
-helm upgrade --install k8sreq-duplicator-controller k8sreq-duplicator-controller/k8sreq-duplicator-controller
+helm upgrade --install webhook-controller webhook-controller/webhook-controller
 ```
 
-This command deploys the k8sreq-duplicator-controller with the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
+This command deploys the webhook-controller with the default configuration. The [configuration](#configuration) section lists the parameters that can be configured during installation.
 
 ## Using the Chart
 
@@ -30,5 +30,5 @@ podAnnotations:
 See Customizing the Chart Before Installing. To see all configurable options with detailed comments, visit the chart's values.yaml, or run the configuration command:
 
 ```sh
-$ helm show values k8sreq-duplicator-controller/k8sreq-duplicator-controller
+$ helm show values webhook-controller/webhook-controller
 ```
