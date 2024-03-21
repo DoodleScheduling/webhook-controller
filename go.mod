@@ -8,9 +8,9 @@ require (
 	github.com/onsi/gomega v1.32.0
 	github.com/spf13/pflag v1.0.5
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0
-	go.opentelemetry.io/otel v1.11.2
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.11.2
-	go.opentelemetry.io/otel/sdk v1.11.2
+	go.opentelemetry.io/otel v1.24.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
+	go.opentelemetry.io/otel/sdk v1.24.0
 	google.golang.org/grpc v1.62.1
 	k8s.io/api v0.27.4
 	k8s.io/apimachinery v0.27.4
