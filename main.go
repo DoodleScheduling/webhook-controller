@@ -74,12 +74,14 @@ var (
 	rateLimiterOptions      helper.RateLimiterOptions
 	watchOptions            helper.WatchOptions
 	otelOptions             otelsetup.Options
+	bodySizeLimit           int64
 )
 
 func main() {
 	flag.StringVar(&httpAddr, "http-addr", ":8080", "The address of http server binding to.")
 	flag.DurationVar(&proxyReadTimeout, "proxy-read-timeout", 10*time.Second, "Read timeout for proxy requests.")
 	flag.DurationVar(&proxyWriteTimeout, "proxy-write-timeout", 10*time.Second, "Write timeout for proxy requests.")
+	flag.Int64Var(&bodySizeLimit, "body-size-limit", proxy.DefaultBodyLimit, "Max size of body stream")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9556",
 		"The address the metric endpoint binds to.")
 	flag.StringVar(&healthAddr, "health-addr", ":9557",
@@ -164,11 +166,11 @@ func main() {
 				return http.ErrUseLastResponse
 			},
 		},
-		BodySizeLimit: proxy.DefaultBodyLimit,
+		BodySizeLimit: bodySizeLimit,
 	}
 
 	proxy := proxy.New(proxyOpts)
-	wrappedHandler := otelhttp.NewHandler(proxy, "req-duplicator")
+	wrappedHandler := otelhttp.NewHandler(proxy, "webhook-controller")
 
 	httpSrv := &http.Server{
 		Addr:           httpAddr,

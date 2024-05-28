@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	DefaultBodyLimit int64 = 2000000
+	DefaultBodyLimit int64 = 10000000
 )
 
 type RequestClone struct {
