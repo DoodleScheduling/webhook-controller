@@ -144,7 +144,7 @@ jobs:
         run: |
           docker save --output webhook-controller-container.tar webhook-controller:latest
       - name: Upload image
-        uses: actions/upload-artifact@9ee08a3b00e91a926cc9547dc79589c20872452f # v3.2.0
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         with:
           name: webhook-controller-container
           path: webhook-controller-container.tar        
@@ -178,7 +178,7 @@ jobs:
         with:
           version: v0.17.0
       - name: Download webhook-controller container
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a #v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: webhook-controller-container
           path: /tmp
@@ -229,7 +229,7 @@ jobs:
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde # v1.10.0
 
       - name: Download webhook-controller container
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: webhook-controller-container
           path: /tmp
