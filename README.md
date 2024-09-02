@@ -3,6 +3,7 @@
 [![release](https://img.shields.io/github/release/DoodleScheduling/webhook-controller/all.svg)](https://github.com/DoodleScheduling/webhook-controller/releases)
 [![release](https://github.com/doodlescheduling/webhook-controller/actions/workflows/release.yaml/badge.svg)](https://github.com/doodlescheduling/webhook-controller/actions/workflows/release.yaml)
 [![report](https://goreportcard.com/badge/github.com/DoodleScheduling/webhook-controller)](https://goreportcard.com/report/github.com/DoodleScheduling/webhook-controller)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/DoodleScheduling/webhook-controller/badge)](https://api.securityscorecards.dev/projects/github.com/DoodleScheduling/webhook-controller)
 [![Coverage Status](https://coveralls.io/repos/github/DoodleScheduling/webhook-controller/badge.svg?branch=master)](https://coveralls.io/github/DoodleScheduling/webhook-controller?branch=master)
 [![license](https://img.shields.io/github/license/DoodleScheduling/webhook-controller.svg)](https://github.com/DoodleScheduling/webhook-controller/blob/master/LICENSE)
 
