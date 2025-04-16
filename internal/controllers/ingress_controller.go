@@ -113,7 +113,7 @@ func (r *RequestCloneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// Fetch the RequestClone instance
 	ph := v1beta1.RequestClone{}
 
-	err := r.Client.Get(ctx, req.NamespacedName, &ph)
+	err := r.Get(ctx, req.NamespacedName, &ph)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -139,7 +139,7 @@ func (r *RequestCloneReconciler) Reconcile(ctx context.Context, req ctrl.Request
 func (r *RequestCloneReconciler) reconcile(ctx context.Context, ph v1beta1.RequestClone, logger logr.Logger) (v1beta1.RequestClone, ctrl.Result, error) {
 	// Lookup matching service
 	svc := v1.Service{}
-	err := r.Client.Get(ctx, client.ObjectKey{
+	err := r.Get(ctx, client.ObjectKey{
 		Namespace: ph.GetNamespace(),
 		Name:      ph.Spec.Backend.ServiceName,
 	}, &svc)
@@ -181,11 +181,11 @@ func (r *RequestCloneReconciler) reconcile(ctx context.Context, ph v1beta1.Reque
 func (r *RequestCloneReconciler) patchStatus(ctx context.Context, ph *v1beta1.RequestClone) error {
 	key := client.ObjectKeyFromObject(ph)
 	latest := &v1beta1.RequestClone{}
-	if err := r.Client.Get(ctx, key, latest); err != nil {
+	if err := r.Get(ctx, key, latest); err != nil {
 		return err
 	}
 
-	return r.Client.Status().Patch(ctx, ph, client.MergeFrom(latest))
+	return r.Status().Patch(ctx, ph, client.MergeFrom(latest))
 }
 
 // objectKey returns client.ObjectKey for the object.
