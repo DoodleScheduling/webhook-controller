@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
 - deployment.yaml
 - service.yaml
+- sa.yaml
 images:
 - name: ghcr.io/doodlescheduling/webhook-controller
   newTag: v0.3.0

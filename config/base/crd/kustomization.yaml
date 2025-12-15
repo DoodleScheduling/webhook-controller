@@ -1,5 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-- bases/proxy.infra.doodle.com_requestclones.yaml
+- bases/webhook.infra.doodle.com_receivers.yaml
 # +kubebuilder:scaffold:crdkustomizeresource

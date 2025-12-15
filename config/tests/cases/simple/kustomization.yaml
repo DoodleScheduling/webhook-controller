@@ -4,7 +4,7 @@ namespace: webhook-system
 
 resources: 
 - ../../../default
-- requestclone.yaml
+- receiver.yaml
 - verify-pod.yaml
 
 helmCharts:
