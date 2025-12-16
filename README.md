@@ -45,9 +45,10 @@ spec:
 Once the controller reconciled the receiver it will be registered in the proxy which by default processes incoming requests at port `8080`.
 Each receiver will receive its own dedicated http path to which webhooks can be send to. See `.status.webhookPath`.
 Usually the webhook-controller is exposed via an ingress. In this case the the webhooks must sent to `http://ingress-host/hooks/ixuxbmoofkiq9s2l61h6i2sl6hdgwnud`.
+
 **Note**: The webhookPath will not change anymore once it was set.
 
-```
+```yaml
 apiVersion: webhook.infra.doodle.com/v1beta1
 kind: Receiver
 metadata:
