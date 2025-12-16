@@ -104,9 +104,7 @@ type ResourceReference struct {
 }
 
 const (
-	ReadyCondition            = "Ready"
-	ServicePortNotFoundReason = "ServicePortNotFound"
-	ServiceNotFoundReason     = "ServiceNotFound"
+	ConditionReady            = "Ready"
 	ServiceBackendReadyReason = "ServiceBackendReady"
 )
 
@@ -132,13 +130,13 @@ func setResourceCondition(resource conditionalResource, condition string, status
 
 // ReceiverNotReady
 func ReceiverNotReady(clone Receiver, reason, message string) Receiver {
-	setResourceCondition(&clone, ReadyCondition, metav1.ConditionFalse, reason, message)
+	setResourceCondition(&clone, ConditionReady, metav1.ConditionFalse, reason, message)
 	return clone
 }
 
 // ReceiverReady
 func ReceiverReady(clone Receiver, reason, message string) Receiver {
-	setResourceCondition(&clone, ReadyCondition, metav1.ConditionTrue, reason, message)
+	setResourceCondition(&clone, ConditionReady, metav1.ConditionTrue, reason, message)
 	return clone
 }
 

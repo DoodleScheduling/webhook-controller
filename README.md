@@ -108,8 +108,8 @@ spec:
 
 The following types are supported:
 * `Async` - The default, does not await reponses from upstream and immeadiately acknowledges incoming requests with a `HTTP 202 Accepted`.
-* `AwaitAllPreferSuccessful` - Await all upstream responses and send back the first successful repsonse (>= 200 && < 400). If all of them are not successful it will send back the first error response.
-* `AwaitAllPreferFailed` - Await all upstream responses and send back the first failed repsonse (< 200 && >= 400). If all of them are successful it will send back the first sucessful response.
+* `AwaitAllPreferSuccessful` - Await all upstream responses and send back the first successful repsonse (>= 200 && < 400). If all of them are not successful it will send back the last failed response.
+* `AwaitAllPreferFailed` - Await all upstream responses and send back the first failed repsonse (< 200 && >= 400). If all of them are successful it will send back the last sucessful response.
 * `AwaitAllReport` - Await all upstream responses and send back a json object containing all target responses including status code, body and headers. The status code of this type will always be `HTTP 200 OK`.
 
 ### Path rewrite
