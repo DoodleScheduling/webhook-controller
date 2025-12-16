@@ -14,9 +14,9 @@ metadata:
     {{- toYaml .Values.annotations | nindent 4 }}
 rules:
 - apiGroups:
-  - "proxy.infra.doodle.com"
+  - "webhook.infra.doodle.com"
   resources:
-  - requestclones
+  - receivers
   verbs:
   - create
   - delete
@@ -26,9 +26,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - "proxy.infra.doodle.com"
+  - "webhook.infra.doodle.com"
   resources:
-  - requestclones/status
+  - receivers/status
   verbs:
   - get
 {{- end }}

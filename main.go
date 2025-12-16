@@ -189,7 +189,6 @@ func main() {
 
 	setReconciler := &controllers.ReceiverReconciler{
 		Log:       ctrl.Log.WithName("controllers").WithName("Receiver"),
-		Scheme:    mgr.GetScheme(),
 		Recorder:  mgr.GetEventRecorderFor("Receiver"),
 		Client:    mgr.GetClient(),
 		HttpProxy: proxy,

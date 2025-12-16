@@ -92,8 +92,8 @@ type ReportResponse struct {
 
 type ReportTargetResponse struct {
 	StatusCode int                 `json:"statusCode"`
-	Body       string              `json:"body"`
-	Headers    map[string][]string `json:"headers"`
+	Body       string              `json:"body,omitempty"`
+	Headers    map[string][]string `json:"headers,omitempty"`
 }
 
 func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +149,7 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 			clone.URL.Scheme = "http"
 			clone.URL.Host = fmt.Sprintf("%s:%d", dst.Address, dst.Port)
+			clone.URL.Path = dst.Path
 			clone.RequestURI = ""
 
 			clone.Body = io.NopCloser(bytes.NewReader(b))
@@ -222,6 +223,7 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(body)
 		return

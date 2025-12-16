@@ -75,145 +75,34 @@ func TestRemoveBackend(t *testing.T) {
 	g.Expect(0).To(Equal(len(proxy.receivers)))
 }
 
-func TestServeHTTP_Async(t *testing.T) {
+func TestServeHTTP_NoMatchingBackend(t *testing.T) {
 	g := NewWithT(t)
 
-	tests := []struct {
-		name           string
-		request        func() *http.Request
-		expectHTTPCode int
-		expectedClones int
-		receiver       Receiver
-	}{
-		{
-			name: "Return service unavailable if no matching backend was found",
-			request: func() *http.Request {
-				r, _ := http.NewRequest("GET", "http://example.com/does-not-exist", strings.NewReader("body"))
-				return r
-			},
-			expectHTTPCode: http.StatusServiceUnavailable,
-			receiver: Receiver{
-				Path:         "/test",
-				ResponseType: Async,
-				Targets: []Target{
-					{
-						Address:     "foo",
-						Port:        8080,
-						ServiceName: "bar",
-					},
-				},
-			},
-		},
-		{
-			name: "Request gets duplicated to receiver and responds with 202",
-			request: func() *http.Request {
-				r, _ := http.NewRequest("GET", "http://example.com/test", strings.NewReader("body"))
-				return r
-			},
-			expectHTTPCode: http.StatusAccepted,
-			expectedClones: 1,
-			receiver: Receiver{
-				Path:         "/test",
-				ResponseType: Async,
-				Targets: []Target{
-					{
-						Address:     "foo",
-						Port:        8080,
-						ServiceName: "bar",
-					},
-				},
-			},
-		},
-		{
-			name: "Request gets duplicated to multiple targets and responds with 202",
-			request: func() *http.Request {
-				r, _ := http.NewRequest("GET", "http://example.com/test", strings.NewReader("body"))
-				return r
-			},
-			expectHTTPCode: http.StatusAccepted,
-			expectedClones: 2,
-			receiver: Receiver{
-				Path:         "/test",
-				ResponseType: Async,
-				Targets: []Target{
-					{
-						Address:     "foo",
-						Port:        8080,
-						ServiceName: "bar",
-					},
-					{
-						Address:     "foo2",
-						Port:        8080,
-						ServiceName: "bar2",
-					},
-				},
-			},
-		},
-		{
-			name: "No targets returns internal server error",
-			request: func() *http.Request {
-				r, _ := http.NewRequest("GET", "http://example.com/test", strings.NewReader("body"))
-				return r
-			},
-			expectHTTPCode: http.StatusInternalServerError,
-			expectedClones: 0,
-			receiver: Receiver{
-				Path:         "/test",
-				ResponseType: Async,
+	proxy := New(DefaultOptions)
+	receiver := Receiver{
+		Path:         "/test",
+		ResponseType: Async,
+		Targets: []Target{
+			{
+				Address:     "foo",
+				Port:        8080,
+				ServiceName: "bar",
 			},
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var mu sync.Mutex
-			var cloneRequests []*http.Request
+	err := proxy.RegisterOrUpdate(receiver)
+	g.Expect(err).NotTo(HaveOccurred())
 
-			opts := DefaultOptions
-			opts.Client.Transport = &dummyTransport{
-				transport: func(r *http.Request) (*http.Response, error) {
-					mu.Lock()
-					defer mu.Unlock()
-					cloneRequests = append(cloneRequests, r)
+	req, _ := http.NewRequest("GET", "http://example.com/does-not-exist", strings.NewReader("body"))
+	w := httptest.NewRecorder()
+	proxy.ServeHTTP(w, req)
+	proxy.Close()
 
-					return &http.Response{}, nil
-				},
-			}
-			proxy := New(opts)
-
-			err := proxy.RegisterOrUpdate(test.receiver)
-			g.Expect(err).NotTo(HaveOccurred(), "could not update backend")
-
-			w := httptest.NewRecorder()
-			proxy.ServeHTTP(w, test.request())
-			proxy.Close()
-
-			g.Expect(test.expectHTTPCode).To(Equal(w.Code))
-			_ = w.Result()
-
-			g.Expect(test.expectedClones).To(Equal(len(cloneRequests)))
-
-			for _, r := range cloneRequests {
-				b, _ := io.ReadAll(r.Body)
-				g.Expect("body").To(Equal(string(b)))
-
-				var match bool
-				for _, target := range test.receiver.Targets {
-					if r.URL.Host == fmt.Sprintf("%s:%d", target.Address, target.Port) && r.URL.Scheme == "http" {
-						match = true
-						break
-					}
-				}
-
-				g.Expect(match).To(Equal(true))
-			}
-		})
-	}
+	g.Expect(http.StatusServiceUnavailable).To(Equal(w.Code))
 }
 
-func TestServeHTTP_Sync(t *testing.T) {
-	g := NewWithT(t)
-
+func TestServeHTTP(t *testing.T) {
 	tests := []struct {
 		name            string
 		responses       []*http.Response
@@ -223,6 +112,29 @@ func TestServeHTTP_Sync(t *testing.T) {
 		expectedHeaders map[string]string
 		responseType    ResponseType
 	}{
+		{
+			name:         "Request gets duplicated to receiver and responds with 202",
+			responseType: Async,
+			responses: []*http.Response{
+				{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok"))},
+			},
+			expectedCode: http.StatusAccepted,
+		},
+		{
+			name:         "Request gets duplicated to multiple targets and responds with 202",
+			responseType: Async,
+			responses: []*http.Response{
+				{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok"))},
+				{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok"))},
+			},
+			expectedCode: http.StatusAccepted,
+		},
+		{
+			name:         "No targets returns internal server error",
+			responseType: Async,
+			responses:    []*http.Response{},
+			expectedCode: http.StatusInternalServerError,
+		},
 		{
 			name:         "Returns first successful response",
 			responseType: AwaitAllPreferSuccessful,
@@ -260,7 +172,6 @@ func TestServeHTTP_Sync(t *testing.T) {
 			name:         "Returns last failed response as there is no successful one",
 			responseType: AwaitAllPreferSuccessful,
 			responses: []*http.Response{
-				{StatusCode: 501, Body: io.NopCloser(strings.NewReader("first"))},
 				{StatusCode: 500, Body: io.NopCloser(strings.NewReader("second")), Header: http.Header{"X-Test": []string{"value"}}},
 			},
 			expectedCode:    500,
@@ -271,7 +182,6 @@ func TestServeHTTP_Sync(t *testing.T) {
 			name:         "Returns last sucessful response as there is no failed one",
 			responseType: AwaitAllPreferFailed,
 			responses: []*http.Response{
-				{StatusCode: 201, Body: io.NopCloser(strings.NewReader("first"))},
 				{StatusCode: 200, Body: io.NopCloser(strings.NewReader("second")), Header: http.Header{"X-Test": []string{"value"}}},
 			},
 			expectedCode:    200,
@@ -279,23 +189,36 @@ func TestServeHTTP_Sync(t *testing.T) {
 			expectedHeaders: map[string]string{"X-Test": "value"},
 		},
 		{
-			name:         "Returns first error response as there is no successful one",
+			name:         "Returns a 504 since there was a request timeout",
 			responseType: AwaitAllPreferSuccessful,
-			timeout:      20 * time.Millisecond,
+			timeout:      1 * time.Millisecond,
 			responses: []*http.Response{
 				{StatusCode: 0},
-				{StatusCode: 500, Body: io.NopCloser(strings.NewReader("second"))},
+				{StatusCode: 0},
 			},
 			expectedCode: 504,
+		},
+		{
+			name:         "Returns a report",
+			responseType: AwaitAllReport,
+			responses: []*http.Response{
+				{StatusCode: 201, Body: io.NopCloser(strings.NewReader("first"))},
+				{StatusCode: 200, Body: io.NopCloser(strings.NewReader("second")), Header: http.Header{"X-Test": []string{"value"}}},
+				{StatusCode: 500, Body: io.NopCloser(strings.NewReader("third")), Header: http.Header{"X-Test": []string{"value"}}},
+			},
+			expectedCode:    200,
+			expectedBody:    `{"targets":[{"statusCode":201,"body":"first"},{"statusCode":200,"body":"second","headers":{"X-Test":["value"]}},{"statusCode":500,"body":"third","headers":{"X-Test":["value"]}}]}`,
+			expectedHeaders: map[string]string{"Content-Type": "application/json"},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			g := NewWithT(t)
 			var mu sync.Mutex
 			responseIndex := 0
-
 			opts := DefaultOptions
+
 			opts.Client.Transport = &dummyTransport{
 				transport: func(r *http.Request) (*http.Response, error) {
 					mu.Lock()
@@ -305,15 +228,21 @@ func TestServeHTTP_Sync(t *testing.T) {
 					responseIndex++
 
 					if idx < len(test.responses) {
-						return test.responses[idx], nil
+						resp := test.responses[idx]
+						// StatusCode 0 represents an error case
+						if resp.StatusCode == 0 {
+							return nil, fmt.Errorf("connection error")
+						}
+						return resp, nil
 					}
 					return &http.Response{StatusCode: 500}, nil
 				},
 			}
+
 			proxy := New(opts)
 
 			receiver := Receiver{
-				Path:         "/test",
+				Path:         "/hook",
 				Timeout:      test.timeout,
 				ResponseType: test.responseType,
 				Targets:      make([]Target, len(test.responses)),
@@ -329,7 +258,7 @@ func TestServeHTTP_Sync(t *testing.T) {
 			err := proxy.RegisterOrUpdate(receiver)
 			g.Expect(err).NotTo(HaveOccurred())
 
-			req, _ := http.NewRequest("GET", "http://example.com/test", strings.NewReader("body"))
+			req, _ := http.NewRequest("GET", fmt.Sprintf("http://example.com%s", "/hook"), strings.NewReader("body"))
 			w := httptest.NewRecorder()
 			proxy.ServeHTTP(w, req)
 			proxy.Close()

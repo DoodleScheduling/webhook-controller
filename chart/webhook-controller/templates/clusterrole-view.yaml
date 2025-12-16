@@ -13,17 +13,17 @@ metadata:
     {{- toYaml .Values.annotations | nindent 4 }}
 rules:
 - apiGroups:
-  - "proxy.infra.doodle.com"
+  - "webhook.infra.doodle.com"
   resources:
-  - requestclones
+  - receivers
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - "proxy.infra.doodle.com"
+  - "webhook.infra.doodle.com"
   resources:
-  - requestclones/status
+  - receivers/status
   verbs:
   - get
 {{- end }}
