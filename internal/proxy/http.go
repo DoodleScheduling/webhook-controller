@@ -196,8 +196,11 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			body, err := io.ReadAll(response.Body)
 			if err != nil {
 				h.log.Error(err, "failed to read response body", "request", r.RequestURI)
-				continue
 			}
+
+			defer func() {
+				_ = response.Body.Close()
+			}()
 
 			reportResponse.Targets = append(reportResponse.Targets, ReportTargetResponse{
 				StatusCode: response.StatusCode,
@@ -234,7 +237,6 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(body)
 		if err != nil {
 			h.log.Error(err, "failed to write body", "request", r.RequestURI)
-			return
 		}
 
 		return
