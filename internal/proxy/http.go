@@ -124,12 +124,6 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	responses := make(chan *http.Response)
 
 	ctx := context.TODO()
-	var cancel context.CancelFunc
-
-	if receiver.Timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, receiver.Timeout)
-		defer cancel()
-	}
 
 	h.log.Info("clone request to upstreams", "targets", len(receiver.Targets), "request", r.RequestURI)
 
@@ -138,6 +132,18 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	var cancel context.CancelFunc
+	shouldCancel := true
+	if receiver.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, receiver.Timeout)
+	}
+
+	defer func() {
+		if cancel != nil && shouldCancel {
+			cancel()
+		}
+	}()
 
 	for _, dst := range receiver.Targets {
 		h.wg.Add(1)
@@ -171,6 +177,7 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if receiver.ResponseType == Async {
+		shouldCancel = false
 		h.log.Info("return response", "request", r.RequestURI, "status", http.StatusAccepted)
 		w.WriteHeader(http.StatusAccepted)
 		return
