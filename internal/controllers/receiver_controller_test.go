@@ -86,7 +86,7 @@ var _ = Describe("Receiver controller", func() {
 				ObservedGeneration: 1,
 				Conditions: []metav1.Condition{
 					{
-						Type:    v1beta1.ReadyCondition,
+						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ServiceBackendReady",
 						Message: "no targets found",
@@ -142,7 +142,7 @@ var _ = Describe("Receiver controller", func() {
 				ObservedGeneration: 1,
 				Conditions: []metav1.Condition{
 					{
-						Type:    v1beta1.ReadyCondition,
+						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ServiceBackendReady",
 						Message: "no targets found",
@@ -181,7 +181,7 @@ var _ = Describe("Receiver controller", func() {
 				ObservedGeneration: 1,
 				Conditions: []metav1.Condition{
 					{
-						Type:    v1beta1.ReadyCondition,
+						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionTrue,
 						Reason:  "ServiceBackendReady",
 						Message: "receiver successfully registered",
