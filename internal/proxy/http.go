@@ -184,7 +184,8 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for response := range responses {
 		received++
 
-		if receiver.ResponseType == AwaitAllReport {
+		switch {
+		case receiver.ResponseType == AwaitAllReport:
 			body, err := io.ReadAll(response.Body)
 			if err != nil {
 				h.log.Error(err, "failed to read response body", "request", r.RequestURI)
@@ -196,15 +197,13 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Body:       string(body),
 				Headers:    response.Header,
 			})
-		} else if returnResponse == nil {
-			if receiver.ResponseType == AwaitAllPreferSuccessful {
-				if response.StatusCode >= 200 && response.StatusCode < 300 {
-					returnResponse = response
-				}
-			} else if receiver.ResponseType == AwaitAllPreferFailed {
-				if response.StatusCode >= 400 {
-					returnResponse = response
-				}
+		case returnResponse == nil && receiver.ResponseType == AwaitAllPreferSuccessful:
+			if response.StatusCode >= 200 && response.StatusCode < 300 {
+				returnResponse = response
+			}
+		case returnResponse == nil && receiver.ResponseType == AwaitAllPreferFailed:
+			if response.StatusCode >= 400 {
+				returnResponse = response
 			}
 		}
 
@@ -225,7 +224,12 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(body)
+		_, err = w.Write(body)
+		if err != nil {
+			h.log.Error(err, "failed to write body", "request", r.RequestURI)
+			return
+		}
+
 		return
 	}
 
@@ -244,7 +248,12 @@ func (h *HttpProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(returnResponse.StatusCode)
 
 	if returnResponse.Body != nil {
-		io.Copy(w, returnResponse.Body)
+		_, err = io.Copy(w, returnResponse.Body)
+		if err != nil {
+			h.log.Error(err, "failed to write body", "request", r.RequestURI)
+			return
+		}
+
 		defer func() {
 			_ = returnResponse.Body.Close()
 		}()

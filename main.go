@@ -73,7 +73,6 @@ var (
 	rateLimiterOptions      helper.RateLimiterOptions
 	watchOptions            helper.WatchOptions
 	otelOptions             otelsetup.Options
-	bodySizeLimit           int64
 )
 
 func main() {
