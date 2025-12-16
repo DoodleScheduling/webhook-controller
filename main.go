@@ -61,8 +61,6 @@ func init() {
 }
 
 var (
-	proxyReadTimeout        = 10 * time.Second
-	proxyWriteTimeout       = 10 * time.Second
 	httpAddr                = ":8080"
 	metricsAddr             string
 	healthAddr              string
@@ -75,14 +73,10 @@ var (
 	rateLimiterOptions      helper.RateLimiterOptions
 	watchOptions            helper.WatchOptions
 	otelOptions             otelsetup.Options
-	bodySizeLimit           int64
 )
 
 func main() {
 	flag.StringVar(&httpAddr, "http-addr", ":8080", "The address of http server binding to.")
-	flag.DurationVar(&proxyReadTimeout, "proxy-read-timeout", 10*time.Second, "Read timeout for proxy requests.")
-	flag.DurationVar(&proxyWriteTimeout, "proxy-write-timeout", 10*time.Second, "Write timeout for proxy requests.")
-	flag.Int64Var(&bodySizeLimit, "body-size-limit", proxy.DefaultBodyLimit, "Max size of body stream")
 	flag.StringVar(&metricsAddr, "metrics-addr", ":9556",
 		"The address the metric endpoint binds to.")
 	flag.StringVar(&healthAddr, "health-addr", ":9557",
@@ -129,7 +123,7 @@ func main() {
 		LeaderElectionID:              leaderElectionId,
 		Cache: ctrlcache.Options{
 			ByObject: map[ctrlclient.Object]ctrlcache.ByObject{
-				&infrav1beta1.RequestClone{}: {Label: watchSelector},
+				&infrav1beta1.Receiver{}: {Label: watchSelector},
 			},
 		},
 	}
@@ -167,7 +161,6 @@ func main() {
 				return http.ErrUseLastResponse
 			},
 		},
-		BodySizeLimit: bodySizeLimit,
 	}
 
 	proxy := proxy.New(proxyOpts)
@@ -176,8 +169,6 @@ func main() {
 	httpSrv := &http.Server{
 		Addr:           httpAddr,
 		Handler:        wrappedHandler,
-		ReadTimeout:    proxyReadTimeout,
-		WriteTimeout:   proxyWriteTimeout,
 		MaxHeaderBytes: 1 << 20,
 	}
 
@@ -195,18 +186,17 @@ func main() {
 		})
 	}()
 
-	setReconciler := &controllers.RequestCloneReconciler{
-		Log:       ctrl.Log.WithName("controllers").WithName("RequestClone"),
-		Scheme:    mgr.GetScheme(),
-		Recorder:  mgr.GetEventRecorderFor("RequestClone"),
+	setReconciler := &controllers.ReceiverReconciler{
+		Log:       ctrl.Log.WithName("controllers").WithName("Receiver"),
+		Recorder:  mgr.GetEventRecorderFor("Receiver"),
 		Client:    mgr.GetClient(),
 		HttpProxy: proxy,
 	}
 
-	if err = setReconciler.SetupWithManager(mgr, controllers.RequestCloneReconcilerOptions{
+	if err = setReconciler.SetupWithManager(mgr, controllers.ReceiverReconcilerOptions{
 		MaxConcurrentReconciles: concurrent,
 	}); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "RequestClone")
+		setupLog.Error(err, "unable to create controller", "controller", "Receiver")
 		os.Exit(1)
 	}
 

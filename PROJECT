@@ -9,8 +9,8 @@ resources:
     namespaced: true
   controller: true
   domain: doodle.com
-  group: proxy.infra.doodle.com
-  kind: RequestClone
+  group: webhook.infra.doodle.com
+  kind: Receiver
   path: github.com/doodlescheduling/webhook-controller/api/v1beta1
   version: v1beta1
 version: "3"

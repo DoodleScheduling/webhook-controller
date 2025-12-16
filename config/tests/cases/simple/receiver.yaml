@@ -1,0 +1,10 @@
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  targets:
+  - service:
+      name: podinfo
+      port:
+        name: http

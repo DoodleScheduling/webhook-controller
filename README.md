@@ -8,56 +8,179 @@
 [![license](https://img.shields.io/github/license/DoodleScheduling/webhook-controller.svg)](https://github.com/DoodleScheduling/webhook-controller/blob/master/LICENSE)
 
 This HTTP proxy duplicates incoming requests and sends concurrently to multiple targets.
-The response will be HTTP 202 Accepted if at least one matching target was found. The responses from the targets are not exposed
-to upstream by design.
+The response is asynchronous by default `HTTP 202 Accepted` if at least one matching target was found.
+However alternatively synchronous processing is also supported (see bellow).
 
 ## Why?
 This proxy is especially useful for handling incoming webhooks which need to be distributed to multiple targets.
 However it can be used for any other use case where a request needs to be duplicated.
 
-## Example RequestClone
-
-These two targets both match `webhook-receiver.example.com`, meaning any incoming request will be sent to both endpoints.
-In this case to `webhook-receiver-app-1:80` and `webhook-receiver-app-2:80`.
-
-```yaml
-apiVersion: proxy.infra.doodle.com/v1beta1
-kind: RequestClone
-metadata:
-  name: webhook-receiver
-  namespace: apps
-spec:
-  host: webhook-receiver.example.com
-  backend:
-    serviceName: webhook-receiver-app-1
-    servicePort: http
----
-apiVersion: proxy.infra.doodle.com/v1beta1
-kind: RequestClone
-metadata:
-  name: webhook-receiver
-  namespace: apps
-spec:
-  host: webhook-receiver.example.com
-  backend:
-    serviceName: webhook-receiver-app-2
-    servicePort: http
-
-```
-North south routing looks like this:
-```
-                                                                      
-                                => Ingress controller proxy =>          => webhook-receiver-app-1:80
-              client                                            webhook      
-[webhook-receiver.example.com]  <=                          <=          => webhook-receiver-app-2:80
-                                          202 Accepted
-```
-
-
 ## Setup
 
 The proxy should not be exposed directly to the public. Rather should traffic be routed via an ingress controller
-and only hosts which are used to duplicate requests should be routed via this proxy.
+to the webhook-controller.
+
+## Example Receiver
+
+In this example an incoming http request will be cloned and forwarded to `podinfo:http` and `podinfo-v2:9091`.
+The response will be `HTTP 202 Accepted` no matter what these targets will respond.
+
+```yaml
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  targets:
+  - service:
+      name: podinfo
+      port:
+        name: http
+  - service:
+      name: podinfo-v2
+      port:
+        number: 9091
+```
+
+Once the controller reconciled the receiver it will be registered in the proxy which by default processes incoming requests at port `8080`.
+Each receiver will receive its own dedicated http path to which webhooks can be send to. See `.status.webhookPath`.
+Usually the webhook-controller is exposed via an ingress. In this case the the webhooks must sent to `http://ingress-host/hooks/ixuxbmoofkiq9s2l61h6i2sl6hdgwnud`.
+**Note**: The webhookPath will not change anymore once it was set.
+
+```
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  type: Async
+  targets:
+  - service:
+      name: podinfo
+      port:
+        name: http
+  - service:
+      name: podinfo-v2
+      port:
+        name: http
+  spec:
+    responseType: Async
+    targets:
+    - service:
+        name: podinfo
+        port:
+          name: http
+  status:
+    conditions:
+    - lastTransitionTime: "2025-12-15T07:41:02Z"
+      message: receiver successfully registered
+      reason: ServiceBackendReady
+      status: "True"
+      type: Ready
+    webhookPath: /hooks/ixuxbmoofkiq9s2l61h6i2sl6hdgwnud
+```
+
+## More configurations
+
+### Response type
+Besides async responses a receiver can also be synchronous. Meaning it will await the upstream responses.
+In this case `AwaitAllPreferSuccessful` will wait for both upstream targets and will send downstream the first successful http response from either targets once all targets
+were processed.
+
+```yaml
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  type: AwaitAllPreferSuccessful
+  targets:
+  - service:
+      name: podinfo
+      port:
+        name: http
+  - service:
+      name: podinfo-v2
+      port:
+        number: 9091
+```
+
+The following types are supported:
+* `Async` - The default, does not await reponses from upstream and immeadiately acknowledges incoming requests with a `HTTP 202 Accepted`.
+* `AwaitAllPreferSuccessful` - Await all upstream responses and send back the first successful repsonse (>= 200 && < 400). If all of them are not successful it will send back the first error response.
+* `AwaitAllPreferFailed` - Await all upstream responses and send back the first failed repsonse (< 200 && >= 400). If all of them are successful it will send back the first sucessful response.
+* `AwaitAllReport` - Await all upstream responses and send back a json object containing all target responses including status code, body and headers. The status code of this type will always be `HTTP 200 OK`.
+
+### Path rewrite
+
+By default http requests are sent upstream to `/`. The target path can be rewritten like:
+
+```yaml
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  timeout: 3s
+  targets:
+  - path: /new/path
+    service:
+      name: podinfo
+      port:
+        name: http
+  - path: /another/path
+    service:
+      name: podinfo-v2
+      port:
+        number: 9091
+```
+
+### Timeout
+
+The default timeout for upstream requests is `10s`, this can be changed however:
+
+```yaml
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  timeout: 3s
+  targets:
+  - service:
+      name: podinfo
+      port:
+        name: http
+  - service:
+      name: podinfo-v2
+      port:
+        number: 9091
+```
+
+### Cross namespace targets
+
+By default target services are only selected in the same namespace the receiver lives. A receiver can discover services across namespaces by defining a namespace selector on the target. In this case a service called `podinfo` will be disovered in any namespace on the cluster.
+
+```yaml
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  type: AwaitAllPreferSuccessful
+  targets:
+  - service:
+      name: podinfo
+      port:
+        name: http
+    namespaceSelector: {}
+
+```
+
+### OpenTelemetry distributed tracing
+The controller supports http traces for the requests. See the `--otel-*` controller flags bellow. 
+
+## Installation
 
 ### Helm chart
 
@@ -95,8 +218,6 @@ The controller can be configured using cmd args:
 --otel-tls-client-cert-path string          Opentelemetry gRPC mTLS client cert path
 --otel-tls-client-key-path string           Opentelemetry gRPC mTLS client key path
 --otel-tls-root-ca-path string              Opentelemetry gRPC mTLS root CA path
---proxy-read-timeout duration               Read timeout for proxy requests. (default 10s)
---proxy-write-timeout duration              Write timeout for proxy requests. (default 10s)
 --watch-all-namespaces                      Watch for resources in all namespaces, if set to false it will only watch the runtime namespace. (default true)
 --watch-label-selector string               Watch for resources with matching labels e.g. 'sharding.fluxcd.io/shard=shard1'.
 ```
