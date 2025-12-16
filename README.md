@@ -111,6 +111,30 @@ The following types are supported:
 * `AwaitAllPreferFailed` - Await all upstream responses and send back the first failed repsonse (< 200 && >= 400). If all of them are successful it will send back the first sucessful response.
 * `AwaitAllReport` - Await all upstream responses and send back a json object containing all target responses including status code, body and headers. The status code of this type will always be `HTTP 200 OK`.
 
+### Path rewrite
+
+By default http requests are sent upstream to `/`. The target path can be rewritten like:
+
+```yaml
+apiVersion: webhook.infra.doodle.com/v1beta1
+kind: Receiver
+metadata:
+  name: webhook-receiver
+spec:
+  timeout: 3s
+  targets:
+  - path: /new/path
+    service:
+      name: podinfo
+      port:
+        name: http
+  - path: /another/path
+    service:
+      name: podinfo-v2
+      port:
+        number: 9091
+```
+
 ### Timeout
 
 The default timeout for upstream requests is `10s`, this can be changed however:
