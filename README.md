@@ -81,6 +81,23 @@ spec:
     webhookPath: /hooks/ixuxbmoofkiq9s2l61h6i2sl6hdgwnud
 ```
 
+## Request flow
+```mermaid
+flowchart LR
+    ReceiverA["Receiver A"]
+    WebhookControllerIngress["Webhook Controller Ingress"]
+    ServiceA["Service A"]
+    ServiceB["Service B"]
+    ServiceC["Service C"]
+    WebhookController["WebhookController"]
+
+    WebhookControllerIngress-- HTTP Request https://ingres-host/hooks/ixuxbmoofkiq9s2l61h6i2sl6hdgwnud -->WebhookController
+    WebhookController-- Look for receiver matching /hooks/ixuxbmoofkiq9s2l61h6i2sl6hdgwnud -->ReceiverA
+    ReceiverA-- Clone request and forward -->ServiceA 
+    ReceiverA-- Clone request and forward -->ServiceB 
+    ReceiverA-- Clone request and forward -->ServiceC 
+```
+
 ## More configurations
 
 ### Response type
@@ -215,7 +232,7 @@ The controller can be configured using cmd args:
 --min-retry-delay duration                  The minimum amount of time for which an object being reconciled will have to wait before a retry. (default 750ms)
 --otel-endpoint string                      Opentelemetry gRPC endpoint (without protocol)
 --otel-insecure                             Opentelemetry gRPC disable tls
---otel-service-name string                  Opentelemetry service name (default "k8skeycloak-controller")
+--otel-service-name string                  Opentelemetry service name (default "webhook-controller")
 --otel-tls-client-cert-path string          Opentelemetry gRPC mTLS client cert path
 --otel-tls-client-key-path string           Opentelemetry gRPC mTLS client key path
 --otel-tls-root-ca-path string              Opentelemetry gRPC mTLS root CA path
