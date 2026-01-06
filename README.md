@@ -81,7 +81,7 @@ spec:
     webhookPath: /hooks/ixuxbmoofkiq9s2l61h6i2sl6hdgwnud
 ```
 
-## Resource Dependencies
+## Request flow
 ```mermaid
 flowchart LR
     ReceiverA["Receiver A"]
