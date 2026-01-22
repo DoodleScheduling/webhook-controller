@@ -3,7 +3,7 @@ module github.com/DoodleScheduling/webhook-controller
 go 1.25.0
 
 require (
-	github.com/fluxcd/pkg/runtime v0.94.0
+	github.com/fluxcd/pkg/runtime v0.95.0
 	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
