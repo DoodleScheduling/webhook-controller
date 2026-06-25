@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/fluxcd/pkg/runtime v0.95.0
 	github.com/go-logr/logr v1.4.3
-	github.com/onsi/ginkgo/v2 v2.31.0
+	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.0
 	github.com/spf13/pflag v1.0.10
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
