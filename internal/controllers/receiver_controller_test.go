@@ -89,7 +89,7 @@ var _ = Describe("Receiver controller", func() {
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ServiceBackendReady",
-						Message: "no targets found",
+						Message: "no targets for specified selector found",
 					},
 				},
 			}
@@ -145,7 +145,7 @@ var _ = Describe("Receiver controller", func() {
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionFalse,
 						Reason:  "ServiceBackendReady",
-						Message: "no targets found",
+						Message: "no targets for specified selector found",
 					},
 				},
 			}
@@ -184,7 +184,7 @@ var _ = Describe("Receiver controller", func() {
 						Type:    v1beta1.ConditionReady,
 						Status:  metav1.ConditionTrue,
 						Reason:  "ServiceBackendReady",
-						Message: "receiver successfully registered",
+						Message: "targets successfully registered",
 					},
 				},
 			}
