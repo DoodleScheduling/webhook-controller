@@ -30,8 +30,7 @@ func TestRegisterOrUpdateBackend(t *testing.T) {
 		},
 	}
 
-	err := proxy.RegisterOrUpdate(receiver)
-	g.Expect(err).NotTo(HaveOccurred(), "could not update backend")
+	proxy.RegisterOrUpdate(receiver)
 	g.Expect(1).To(Equal(len(proxy.receivers)))
 	g.Expect(receiver).To(Equal(proxy.receivers["/test"]))
 
@@ -47,8 +46,7 @@ func TestRegisterOrUpdateBackend(t *testing.T) {
 		},
 	}
 
-	err = proxy.RegisterOrUpdate(receiver)
-	g.Expect(err).NotTo(HaveOccurred(), "could not update backend")
+	proxy.RegisterOrUpdate(receiver)
 	g.Expect(1).To(Equal(len(proxy.receivers)))
 
 	g.Expect(receiver).To(Equal(proxy.receivers["/test"]))
@@ -69,7 +67,7 @@ func TestRemoveBackend(t *testing.T) {
 			},
 		},
 	}
-	_ = proxy.RegisterOrUpdate(receiver)
+	proxy.RegisterOrUpdate(receiver)
 	err := proxy.Unregister("/test")
 	g.Expect(err).To(Not(HaveOccurred()))
 	g.Expect(0).To(Equal(len(proxy.receivers)))
@@ -91,8 +89,7 @@ func TestServeHTTP_NoMatchingBackend(t *testing.T) {
 		},
 	}
 
-	err := proxy.RegisterOrUpdate(receiver)
-	g.Expect(err).NotTo(HaveOccurred())
+	proxy.RegisterOrUpdate(receiver)
 
 	req, _ := http.NewRequest("GET", "http://example.com/does-not-exist", strings.NewReader("body"))
 	w := httptest.NewRecorder()
@@ -255,9 +252,7 @@ func TestServeHTTP(t *testing.T) {
 				}
 			}
 
-			err := proxy.RegisterOrUpdate(receiver)
-			g.Expect(err).NotTo(HaveOccurred())
-
+			proxy.RegisterOrUpdate(receiver)
 			req, _ := http.NewRequest("GET", fmt.Sprintf("http://example.com%s", "/hook"), strings.NewReader("body"))
 			w := httptest.NewRecorder()
 			proxy.ServeHTTP(w, req)
@@ -324,9 +319,7 @@ func TestServeHTTP_BodySizeLimit(t *testing.T) {
 				},
 			}
 
-			err := proxy.RegisterOrUpdate(receiver)
-			g.Expect(err).NotTo(HaveOccurred())
-
+			proxy.RegisterOrUpdate(receiver)
 			req, _ := http.NewRequest("POST", "http://example.com/test", strings.NewReader(test.requestBody))
 			w := httptest.NewRecorder()
 			proxy.ServeHTTP(w, req)
@@ -367,9 +360,7 @@ func TestServeHTTP_Timeout(t *testing.T) {
 		},
 	}
 
-	err := proxy.RegisterOrUpdate(receiver)
-	g.Expect(err).NotTo(HaveOccurred())
-
+	proxy.RegisterOrUpdate(receiver)
 	req, _ := http.NewRequest("GET", "http://example.com/test", strings.NewReader("body"))
 	w := httptest.NewRecorder()
 	proxy.ServeHTTP(w, req)

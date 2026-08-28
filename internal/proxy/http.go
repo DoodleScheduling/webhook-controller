@@ -79,11 +79,10 @@ func (h *HttpProxy) Unregister(path string) error {
 	return nil
 }
 
-func (h *HttpProxy) RegisterOrUpdate(receiver Receiver) error {
+func (h *HttpProxy) RegisterOrUpdate(receiver Receiver) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 	h.receivers[receiver.Path] = receiver
-	return nil
 }
 
 type ReportResponse struct {

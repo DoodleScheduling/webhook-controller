@@ -81,7 +81,7 @@ var _ = BeforeSuite(func() {
 		HttpProxy: proxy.New(proxy.DefaultOptions),
 		Client:    k8sManager.GetClient(),
 		Log:       ctrl.Log.WithName("controllers").WithName("Receiver"),
-		Recorder:  k8sManager.GetEventRecorderFor("Receiver"),
+		Recorder:  k8sManager.GetEventRecorder("Receiver"),
 	}).SetupWithManager(k8sManager, ReceiverReconcilerOptions{})
 	Expect(err).ToNot(HaveOccurred())
 

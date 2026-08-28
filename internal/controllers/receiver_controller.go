@@ -14,12 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
-// +kubebuilder:rbac:groups=webhook.infra.doodle.com,resources=receivers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=webhook.infra.doodle.com,resources=receivers/status,verbs=get;update;patch
-
 package controllers
 
 import (
@@ -30,11 +24,11 @@ import (
 	"slices"
 
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -45,16 +39,23 @@ import (
 	"github.com/DoodleScheduling/webhook-controller/internal/proxy"
 )
 
+// +kubebuilder:rbac:groups=webhook.infra.doodle.com,resources=receivers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=webhook.infra.doodle.com,resources=receivers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
+
 // Receiver reconciles a Receiver object
 type ReceiverReconciler struct {
 	client.Client
 	HttpProxy pathUpdater
 	Log       logr.Logger
-	Recorder  record.EventRecorder
+	Recorder  events.EventRecorder
 }
 
 type pathUpdater interface {
-	RegisterOrUpdate(receiver proxy.Receiver) error
+	RegisterOrUpdate(receiver proxy.Receiver)
 	Unregister(path string) error
 }
 
@@ -67,7 +68,7 @@ func (r *ReceiverReconciler) SetupWithManager(mgr ctrl.Manager, opts ReceiverRec
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.Receiver{}).
 		Watches(
-			&v1.Service{},
+			&corev1.Service{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForChangeBySelector),
 		).
 		WithOptions(controller.Options{MaxConcurrentReconciles: opts.MaxConcurrentReconciles}).
@@ -75,12 +76,12 @@ func (r *ReceiverReconciler) SetupWithManager(mgr ctrl.Manager, opts ReceiverRec
 }
 
 func (r *ReceiverReconciler) requestsForChangeBySelector(ctx context.Context, o client.Object) []reconcile.Request {
-	svc, ok := o.(*v1.Service)
+	svc, ok := o.(*corev1.Service)
 	if !ok {
 		panic(fmt.Sprintf("expected a Service, got %T", o))
 	}
 
-	var ns v1.Namespace
+	var ns corev1.Namespace
 	if err := r.Get(ctx, client.ObjectKey{Name: svc.Namespace}, &ns); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -201,12 +202,11 @@ func (r *ReceiverReconciler) reconcile(ctx context.Context, receiver v1beta1.Rec
 			return receiver, ctrl.Result{}, err
 		}
 
-		msg := "no targets found"
-		r.Recorder.Event(&receiver, "Normal", "info", msg)
-		return v1beta1.ReceiverNotReady(receiver, v1beta1.ServiceBackendReadyReason, msg), ctrl.Result{}, nil
+		r.Recorder.Eventf(&receiver, nil, corev1.EventTypeWarning, "NoTargetFound", "LookupTarget", "no targets for specified selector found")
+		return v1beta1.ReceiverNotReady(receiver, v1beta1.ServiceBackendReadyReason, "no targets for specified selector found"), ctrl.Result{}, nil
 	}
 
-	err = r.HttpProxy.RegisterOrUpdate(proxy.Receiver{
+	r.HttpProxy.RegisterOrUpdate(proxy.Receiver{
 		Timeout:       receiver.Spec.Timeout.Duration,
 		Path:          receiver.Status.WebhookPath,
 		Targets:       targets,
@@ -218,9 +218,7 @@ func (r *ReceiverReconciler) reconcile(ctx context.Context, receiver v1beta1.Rec
 		return v1beta1.Receiver{}, ctrl.Result{}, err
 	}
 
-	msg := "receiver successfully registered"
-	r.Recorder.Event(&receiver, "Normal", "info", msg)
-	return v1beta1.ReceiverReady(receiver, v1beta1.ServiceBackendReadyReason, msg), ctrl.Result{}, err
+	return v1beta1.ReceiverReady(receiver, v1beta1.ServiceBackendReadyReason, "targets successfully registered"), ctrl.Result{}, err
 }
 
 type targetService struct {
@@ -236,9 +234,9 @@ func (r *ReceiverReconciler) extendWithTargets(ctx context.Context, receiver v1b
 	receiver.Status.SubResourceCatalog = []v1beta1.ResourceReference{}
 
 	for _, target := range receiver.Spec.Targets {
-		var namespaces v1.NamespaceList
+		var namespaces corev1.NamespaceList
 		if target.NamespaceSelector == nil {
-			namespaces.Items = append(namespaces.Items, v1.Namespace{
+			namespaces.Items = append(namespaces.Items, corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: receiver.Namespace,
 				},
@@ -256,7 +254,7 @@ func (r *ReceiverReconciler) extendWithTargets(ctx context.Context, receiver v1b
 		}
 
 		for _, namespace := range namespaces.Items {
-			service := v1.Service{}
+			service := corev1.Service{}
 			err := r.Get(ctx, client.ObjectKey{
 				Namespace: namespace.Name,
 				Name:      target.Service.Name,
