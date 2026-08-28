@@ -39,11 +39,10 @@ import (
 	"github.com/DoodleScheduling/webhook-controller/internal/proxy"
 )
 
-// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=webhook.infra.doodle.com,resources=receivers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=webhook.infra.doodle.com,resources=receivers/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 

@@ -171,5 +171,5 @@ type ReceiverList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&Receiver{}, &ReceiverList{})
+	objectTypes = append(objectTypes, &Receiver{}, &ReceiverList{})
 }

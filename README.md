@@ -6,7 +6,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/DoodleScheduling/webhook-controller/badge.svg?branch=master)](https://coveralls.io/github/DoodleScheduling/webhook-controller?branch=master)
 [![license](https://img.shields.io/github/license/DoodleScheduling/webhook-controller.svg)](https://github.com/DoodleScheduling/webhook-controller/blob/master/LICENSE)
 
-This HTTP proxy duplicates incoming requests and sends it concurrently to multiple targets.
+This HTTP proxy duplicates incoming requests and sends them concurrently to multiple targets.
 The response is asynchronous by default `HTTP 202 Accepted` if at least one matching target was found.
 However alternatively synchronous processing is also supported (see bellow).
 
@@ -124,8 +124,8 @@ spec:
 
 The following types are supported:
 * `Async` - The default, does not await responses from upstream and immediately acknowledges incoming requests with a `HTTP 202 Accepted`.
-* `AwaitAllPreferSuccessful` - Await all upstream responses and send back the first successful response (>= 200 && < 400). If all of them are not successful it will send back the last failed response.
-* `AwaitAllPreferFailed` - Await all upstream responses and send back the first failed response (< 200 && >= 400). If all of them are successful it will send back the last successful response.
+* `AwaitAllPreferSuccessful` - Await all upstream responses and send back the first successful response (>= 200 and < 400). If all of them are not successful it will send back the last failed response.
+* `AwaitAllPreferFailed` - Await all upstream responses and send back the first failed response (< 200 or >= 400). If all of them are successful it will send back the last successful response.
 * `AwaitAllReport` - Await all upstream responses and send back a json object containing all target responses including status code, body and headers. The status code of this type will always be `HTTP 200 OK`.
 
 ### Path rewrite
