@@ -168,7 +168,7 @@ func (r *ReceiverReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Update status after reconciliation.
 	if err = r.patchStatus(ctx, &receiver); err != nil {
 		logger.Error(err, "unable to update status after reconciliation")
-		return ctrl.Result{Requeue: true}, err
+		return ctrl.Result{}, err
 	}
 
 	return result, reconcileErr
